@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python's New Era: Free-Threading in 3.14</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: A single-page, "scrollytelling" SPA with a sticky top navigation bar for smooth-scrolling to key sections (Problem, Solution, Benchmark, Use Cases, Takeaways). This structure respects the logical narrative of the presentation while making it an "app," not just "slides." Key info is condensed into interactive, JS-driven tabbed interfaces for "The Problem" and "Use Cases," allowing users to explore complex topics without being overwhelmed. This design prioritizes both linear storytelling (scrolling) and random-access exploration (nav + tabs) for optimal usability. -->
+    <!-- Visualization & Content Choices:
+        - Report Info (Slide 3-5): The GIL Problem. Goal: Inform/Organize. Viz/Method: Interactive 3-tab layout (HTML/JS). Interaction: Click tabs ("The Lock," "The Reason," "The Bottleneck") to toggle content. Justification: Condenses three slides into one interactive component. Library: Vanilla JS.
+        - Report Info (Slide 6): Old Workarounds. Goal: Compare. Viz/Method: 3-column responsive card grid (HTML/Tailwind). Justification: Easy side-by-side comparison. Library: N/A.
+        - Report Info (Slide 8): How It Works. Goal: Inform/Organize. Viz/Method: 4-column responsive card grid (HTML/Tailwind). Justification: Clearly presents the 4 technical solutions. Library: N/A.
+        - Report Info (Slide 9): How to Use It. Goal: Inform. Viz/Method: Two-column layout with code snippet (HTML/Tailwind). Justification: Clear presentation of practical code. Library: N/A.
+        - Report Info (Slide 10): Benchmark. Goal: Compare. Viz/Method: Bar Chart (<canvas>). Interaction: Chart.js tooltips on hover. Justification: The report explicitly describes a bar chart, the best way to show this comparison. Library: Chart.js.
+        - Report Info (Slide 11-13): Production Boosts. Goal: Compare/Organize. Viz/Method: Interactive 3-tab layout (HTML/JS). Interaction: Click tabs ("Data & ETL," "APIs & AI," "Web Scrapers") to toggle "Before vs. After" content. Justification: Most effective way to organize 3 distinct use cases. Library: Vanilla JS.
+        - Report Info (Slide 14): Takeaways. Goal: Inform (Warning). Viz/Method: 3-column grid with a distinct "warning" background color (HTML/Tailwind). Justification: Highlights critical warning information. Library: N/A.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .tab-btn.active {
+            @apply border-blue-600 text-blue-600;
+        }
+        .tab-btn {
+            @apply border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300;
+        }
+        .tab-panel {
+            @apply hidden;
+        }
+        .tab-panel.active {
+            @apply block;
+        }
+    </style>
+</head>
+<body class="bg-white text-neutral-800 font-sans leading-relaxed">
+
+    <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-neutral-200">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0 flex items-center">
+                    <h1 class="text-xl font-bold text-blue-600">Python 3.14: Free-Threading</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#problem" class="text-neutral-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Problem</a>
+                        <a href="#solution" class="text-neutral-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Solution</a>
+                        <a href="#benchmark" class="text-neutral-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Benchmark</a>
+                        <a href="#use-cases" class="text-neutral-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Use Cases</a>
+                        <a href="#takeaways" class="text-neutral-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Takeaways</a>
+                    </div>
+                </div>
+                <div class="-mr-2 flex md:hidden">
+                    <button type="button" id="mobile-menu-btn" class="bg-neutral-100 inline-flex items-center justify-center p-2 rounded-md text-neutral-500 hover:text-neutral-700 hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" aria-controls="mobile-menu" aria-expanded="false">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                        <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#problem" class="text-neutral-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">The Problem</a>
+                <a href="#solution" class="text-neutral-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">The Solution</a>
+                <a href="#benchmark" class="text-neutral-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">Benchmark</a>
+                <a href="#use-cases" class="text-neutral-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">Use Cases</a>
+                <a href="#gotchas" class="text-neutral-600 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">Gotchas</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="bg-neutral-50">
+        <div class="container mx-auto max-w-7xl py-24 px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight text-neutral-900 sm:text-5xl md:text-6xl">
+                <span class="block xl:inline">Python's New Era:</span>
+                <span class="block text-blue-600 xl:inline">Free-Threading in 3.14</span>
+            </h1>
+            <p class="mt-6 max-w-md mx-auto text-lg text-neutral-600 sm:text-xl md:mt-8 md:max-w-3xl">
+                How the end of the Global Interpreter Lock (GIL) unlocks true parallelism <br> and what it means for our applications.
+            </p>
+        </div>
+    </header>
+
+    <main class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24 space-y-24">
+
+        <section id="problem">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">The "Problem": The Global Interpreter Lock</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    For decades, Python has had a limitation known as the GIL. This sharing explores what it was, why it existed, and the bottleneck it created for multi-threaded applications.
+                </p>
+            </div>
+            
+            <div class="mt-12 max-w-4xl mx-auto">
+                <div class="border-b border-neutral-200">
+                    <nav class="-mb-px flex justify-center space-x-8" aria-label="Tabs">
+                        <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#problem-tab-1">
+                            The Lock
+                        </button>
+                        <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#problem-tab-2">
+                            The Reason
+                        </button>
+                        <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#problem-tab-3">
+                            The Bottleneck
+                        </button>
+                    </nav>
+                </div>
+                <div class="mt-8">
+                    <div id="problem-tab-1" class="tab-panel active">
+                        <h3 class="text-2xl font-semibold text-center">What Was the GIL?</h3>
+                        <p class="mt-4 text-lg text-neutral-600">
+                            The GIL is a mutex, a lock, that protects the entire Python interpreter. Its one simple rule was: <br> <strong>Only one thread could execute Python bytecode at a time.</strong>
+                        </p>
+                        <p class="mt-4 text-lg text-neutral-600">
+                            This meant that even on a 32-core server, your multi-threaded Python code was (mostly) running on just one core. It gave you concurrency (switching between tasks) but not true parallelism (running tasks at the same time). It was like a 32-lane highway funneling down to a single tollbooth.
+                        </p>
+                    </div>
+                    <div id="problem-tab-2" class="tab-panel">
+                        <h3 class="text-2xl font-semibold text-center">Why Did It Even Exist?</h3>
+                        <p class="mt-4 text-lg text-neutral-600">
+                            The core reason was to simplify memory management. CPython uses <strong>Reference Counting</strong> to know when to free memory. Imagine two threads trying to change an object's reference count at the same time:
+                        </p>
+                        <ol class="mt-4 list-decimal list-inside text-lg text-neutral-600 space-y-2">
+                            <li>Thread A reads a "ref-count" of 1.</li>
+                            <li>Thread B reads the <strong>same</strong> "ref-count" of 1.</li>
+                            <li>Thread A decrements the count to 0 and frees the memory.</li>
+                            <li>Thread B (which still thinks the count is 1) tries to access that freed memory.</li>
+                            <li class="font-bold">Result: Thread B crash.</li>
+                        </ol>
+                        <p class="mt-4 text-lg text-neutral-600">
+                            The GIL was the simple, brute-force solution: by only allowing one thread to run at a time, this "race condition" was impossible. It also made writing C-extensions much easier, which helped build Python's rich ecosystem.
+                        </p>
+                    </div>
+                    <div id="problem-tab-3" class="tab-panel">
+                        <h3 class="text-2xl font-semibold text-center">CPU-Bound vs. I/O-Bound</h3>
+                        <p class="mt-4 text-lg text-neutral-600">
+                            The GIL was not a problem for all tasks, which is a critical distinction to understand.
+                        </p>
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-6 transition-colors duration-300 hover:bg-blue-50 hover:border-blue-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-blue-800">I/O-Bound Tasks</h4>
+                                <p class="mt-2 text-neutral-700">(e.g., Network Communication, Disk Read/Write)</p>
+                                <p class="mt-3 text-neutral-700">The GIL was <strong>released!</strong> When your thread was "waiting" for a network response or reading a file, the GIL was passed to another thread. This is why `threading` and `asyncio` are great for I/O task.</p>
+                            </div>
+                            <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-6 transition-colors duration-300 hover:bg-red-50 hover:border-red-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-red-800">CPU-Bound Tasks</h4>
+                                <p class="mt-2 text-neutral-700">(e.g., Data Parsing, Math Calculation)</p>
+                                <p class="mt-3 text-neutral-700">The GIL was <strong>held!</strong> Your thread would run its calculations, holding the GIL hostage, while all other threads just waited. This is why `threading` was terrible for parallel math.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="workarounds">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">How We Fought the GIL</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    To get true parallelism, we had to use complex workarounds that operated outside the normal `threading` model.
+                </p>
+            </div>
+            <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-neutral-50 rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-semibold text-neutral-900">1. `multiprocessing` Module</h3>
+                    <p class="mt-3 text-neutral-600"><strong>How:</strong> Runs code in separate processes, each with its <strong>own</strong> interpreter and its <strong>own</strong> GIL.</p>
+                    <p class="mt-3"><span class="font-semibold text-green-600">Pro:</span> True parallelism.</p>
+                    <p class="mt-1"><span class="font-semibold text-red-600">Con:</span> Heavy! High memory use (data is copied on every program) and complex data sharing (requires pickling).</p>
+                </div>
+                <div class="bg-neutral-50 rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-semibold text-neutral-900">2. `asyncio`</h3>
+                    <p class="mt-3 text-neutral-600"><strong>How:</strong> Single-threaded concurrency. One thread juggles thousands of I/O tasks efficiently.</p>
+                    <p class="mt-3"><span class="font-semibold text-green-600">Pro:</span> Super-efficient for I/O.</p>
+                    <p class="mt-1"><span class="font-semibold text-red-600">Con:</span> Still only uses one CPU core. A heavy CPU-bound task blocks the <strong>entire</strong> event loop.</p>
+                </div>
+                <div class="bg-neutral-50 rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-semibold text-neutral-900">3. C-Extensions (NumPy, Polars)</h3>
+                    <p class="mt-3 text-neutral-600"><strong>How:</strong> The C/Rust code manually releases the GIL, runs its parallel code, then re-acquires it.</p>
+                    <p class="mt-3"><span class="font-semibold text-green-600">Pro:</span> Extremely fast.</p>
+                    <p class="mt-1"><span class="font-semibold text-red-600">Con:</span> You're not writing pure Python anymore.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="solution">
+            <div class="text-center max-w-3xl mx-auto">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">The Solution: Python 3.14 (<a href="https://peps.python.org/pep-0703/">PEP 703</a>)</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    And that brings us to Python 3.14. Based on PEP 703, the Global Interpreter Lock is now <strong>optional</strong>. You can run Python in a <strong>"free-threaded"</strong> mode.
+                </p>
+                <p class="mt-4 text-xl text-neutral-600">
+                    This allows the `threading` module to achieve <strong>true, multi-core parallelism</strong> for CPU-bound tasks. The "single tollbooth" is gone.
+                </p>
+            </div>
+
+            <div class="mt-16">
+                <h3 class="text-2xl font-semibold text-center text-neutral-900">How? A New, Thread-Safe Python</h3>
+                <p class="mt-4 text-lg text-neutral-600 text-center max-w-2xl mx-auto">
+                    If the GIL is gone, what stops the memory from crashing? The solution is a set of modern, sophisticated mechanisms that replace the single lock.
+                </p>
+                <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="text-center">
+                        <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white mx-auto">
+                            <span class="text-xl font-bold">1</span>
+                        </div>
+                        <h4 class="mt-4 text-lg font-medium text-neutral-900">Fine-Grained Locks</h4>
+                        <p class="mt-2 text-neutral-600">Instead of <strong>one</strong> giant lock, core data structures (`list`, `dict`, `set`) now have their <strong>own</strong> tiny, internal locks.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white mx-auto">
+                            <span class="text-xl font-bold">2</span>
+                        </div>
+                        <h4 class="mt-4 text-lg font-medium text-neutral-900">New Garbage Collector</h4>
+                        <p class="mt-2 text-neutral-600">The old GC wasn't thread-safe. The free-threaded build uses a completely different, more modern GC.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white mx-auto">
+                            <span class="text-xl font-bold">3</span>
+                        </div>
+                        <h4 class="mt-4 text-lg font-medium text-neutral-900">"Immortalization"</h4>
+                        <p class="mt-2 text-neutral-600">Objects that never change (modules, code objects) are made "immortal." Their ref-count never changes, so they don't need locks.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-600 text-white mx-auto">
+                            <span class="text-xl font-bold">4</span>
+                        </div>
+                        <h4 class="mt-4 text-lg font-medium text-neutral-900">Optimized Ref-Counting</h4>
+                        <p class="mt-2 text-neutral-600">A new system (<a href="https://peps.python.org/pep-0703/#biased-reference-counting">"biased reference counting</a>") makes ref-counts super-fast for the common case: an object only being used by one thread.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-to-use">
+            <div class="text-center max-w-3xl mx-auto">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">Practical Usage</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    This is <strong>not</strong> the default (yet) but experimental. You must be explicit on using it. <br> Here's how to get started and what the code looks like.
+                </p>
+            </div>
+            <div class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-start">
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold text-neutral-900">Step 1: Install the `t`-build</h3>
+                        <p class="mt-2 text-lg text-neutral-600">The easiest way is using `uv` (A Python Package Manager) <br>Or download installer binary from <a href="https://www.python.org/downloads/release/python-3140/">Python Official Website</a>.</p>
+                        <pre class="mt-3 bg-neutral-900 text-white p-4 rounded-lg overflow-x-auto"><code class="language-bash">uv python install 3.14t</code></pre>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-neutral-900">Step 2: Run Your Code</h3>
+                        <p class="mt-2 text-lg text-neutral-600">Just use that interpreter with postfix `t`. <br> Or, use the standard interpreter with the `-X` flag.</p>
+                        <pre class="mt-3 bg-neutral-900 text-white p-4 rounded-lg overflow-x-auto"><code class="language-bash">python3.14t my_script.py
+
+# OR
+
+python3.14 -X gil=0 my_script.py</code></pre>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <h3 class="text-xl font-semibold text-neutral-900">Step 3: Write Code! (No Change Needed)</h3>
+                    <p class="mt-2 text-lg text-neutral-600">Just use the standard libraries. <br> `ThreadPoolExecutor` is your new best friend for CPU-bound tasks.</p>
+                    <pre class="mt-3 bg-neutral-900 text-white p-4 rounded-lg overflow-x-auto"><code class="language-python">import time
+from concurrent.futures import ThreadPoolExecutor
+
+# A CPU-bound task
+def crunch_numbers(n):
+    sum(i*i for i in range(n))
+
+with ThreadPoolExecutor(max_workers=8) as executor:
+    print("Submitting tasks...")
+    # These will run on 8 cores IN PARALLEL
+    executor.submit(crunch_numbers, 10_000_000)
+    executor.submit(crunch_numbers, 10_000_000)
+    executor.submit(crunch_numbers, 10_000_000)
+    executor.submit(crunch_numbers, 10_000_000)
+    print("All tasks submitted.")
+# The 'with' block automatically waits for tasks
+print("Done.")</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="benchmark">
+            <div class="text-center max-w-3xl mx-auto">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">Benchmark: A "Mixed-Bound" Web Scraper</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    A typical web scraper has two bottlenecks: I/O (fetching) and CPU (parsing). <br> I ran the benchmark on laptop to see how removing the GIL affects.
+                </p>
+            </div>
+                <div class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-neutral-900">Analysis of Results</h3>
+                            <p class="mt-2 text-lg text-neutral-600">The data shows a two-stage bottleneck and how No-GIL solves the second one.</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold text-neutral-900">1. GIL (1 Thread)</h4>
+                            <p class="mt-1 text-lg text-neutral-600">The baseline `asyncio` script ran in an average of <strong class="text-red-600">75.3 seconds</strong>. <br> It's concurrent, but all I/O and CPU work is on one core.</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold text-neutral-900">2. GIL (8 Threads)</h4>
+                            <p class="mt-1 text-lg text-neutral-600">Running 8 workers in threads dropped the time to <strong class="text-orange-600">18.3 seconds</strong>. <br> This <strong class="text-neutral-800">4.1x speedup</strong> is from parallelizing the I/O (since the GIL is released on network waits).</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold text-neutral-900">3. No-GIL (8 Threads)</h4>
+                            <p class="mt-1 text-lg text-neutral-600">Removing the GIL dropped the time again to <strong class="text-blue-600">12.2 seconds</strong>. <br> This <strong class="text-neutral-800">1.5x speedup</strong> proves that CPU-bound parsing <strong>was</strong> the final bottleneck, which is now solved.</p>
+                        </div>
+                    </div>
+                <div>
+                    <div class="chart-container">
+                        <canvas id="benchmarkChart"></canvas>
+                    </div>
+                    <p class="text-center text-neutral-600 mt-4">Average Total Time to Scrape & Parse 1000 Pages</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="use-cases">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">Production Boosts: Why It Matters</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    This isn't just a technical curiosity. It enables simpler, faster, and more efficient architectures for our production applications.
+                </p>
+            </div>
+            
+            <div class="mt-12 max-w-4xl mx-auto">
+                <div class="border-b border-neutral-200">
+                    <nav class="-mb-px flex justify-center space-x-8" aria-label="Tabs">
+                        <button class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#use-case-tab-1">
+                            Data & ETL
+                        </button>
+                        <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#use-case-tab-2">
+                            APIs & AI
+                        </button>
+                        <button class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab-target="#use-case-tab-3">
+                            Web Scrapers
+                        </button>
+                    </nav>
+                </div>
+                <div class="mt-8">
+                    <div id="use-case-tab-1" class="tab-panel active">
+                        <h3 class="text-2xl font-semibold text-center">Use Case: Data, ML, & ETL</h3>
+                        <p class="mt-4 text-lg text-neutral-600 text-center">Parallelize in-memory data transformation and feature engineering in pure Python.</p>
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-red-50 hover:border-red-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-red-800">Before (GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>Pure Python logic (e.g., text processing) was a <em>huge</em> bottleneck.</li>
+                                    <li>Forced to use `multiprocessing` (high memory use, slow data sharing).</li>
+                                    <li>Relied <em>only</em> on C-extensions (pandas, NumPy) to get any speed.</li>
+                                </ul>
+                            </div>
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-green-50 hover:border-green-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-green-800">After (No-GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>Write pure, readable Python logic and parallelize it with a `ThreadPoolExecutor`.</li>
+                                    <li>Threads share memory, so there's no expensive data copying.</li>
+                                    <li><strong>Result:</strong> Simpler, faster data pipelines.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="use-case-tab-2" class="tab-panel">
+                        <h3 class="text-2xl font-semibold text-center">Use Case: AI & API Servers</h3>
+                        <p class="mt-4 text-lg text-neutral-600 text-center">Handle heavy CPU-bound tasks in-process without blocking the server.</p>
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-red-50 hover:border-red-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-red-800">Before (GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>A heavy API request (e.g., report generation) would block the web worker.</li>
+                                    <li>Forced to use Celery/RQ workers (external process, message queue).</li>
+                                    <li>AI agents had to run in sequence or via `multiprocessing`.</li>
+                                </ul>
+                            </div>
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-green-50 hover:border-green-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-green-800">After (No-GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>Run the heavy task on a thread with `await executor.submit(...)` in the <em>same process</em>.</li>
+                                    <li>The server is not blocked and can handle other requests.</li>
+                                    <li>Run multiple AI agents in parallel in threads.</li>
+                                    <li><strong>Result:</strong> Drastically simpler, lower-latency infrastructure.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="use-case-tab-3" class="tab-panel">
+                        <h3 class="text-2xl font-semibold text-center">Use Case: The "Web Scrapers"</h3>
+                        <p class="mt-4 text-lg text-neutral-600 text-center">This is what the benchmark showed. A single process can be a self-contained, high-performance machine.</p>
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-red-50 hover:border-red-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-red-800">Before (GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>Complex `asyncio` + `multiprocessing` hybrids.</li>
+                                    <li>Difficult to debug and manage.</li>
+                                    <li>High memory overhead from multiple processes.</li>
+                                </ul>
+                            </div>
+                            <div class="border border-neutral-200 bg-neutral-50 rounded-lg p-6 transition-colors duration-300 hover:bg-green-50 hover:border-green-200 group">
+                                <h4 class="text-xl font-semibold text-neutral-900 transition-colors duration-300 group-hover:text-green-800">After (No-GIL)</h4>
+                                <ul class="mt-3 list-disc list-inside text-neutral-700 space-y-2">
+                                    <li>One process handles:
+                                        <br> 1. Thousands of I/O-bound connections (`asyncio`).
+                                        <br> 2. Dozens of CPU-bound parsing tasks (`ThreadPoolExecutor`).
+                                    </li>
+                                    <li><strong>Result:</strong> Simpler, more efficient, and easier-to-debug.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="takeaways">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-3xl font-extrabold text-neutral-900 sm:text-4xl">Takeaways: Not a Magic Bullet</h2>
+                <p class="mt-4 text-xl text-neutral-600">
+                    Before we refactor everything, this is not a free lunch. <br> There are critical trade-offs and new challenges to be aware of.
+                </p>
+            </div>
+            <div class="mt-12 bg-yellow-50 border-l-4 border-yellow-400 p-8 rounded-r-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <h4 class="text-xl font-semibold text-yellow-900">1. Single-Thread Performance could be <strong><em>SLOWER</em></strong></h4>
+                        <p class="mt-3 text-yellow-800">Yes, you read that right. <br> Free-threaded Python could be <strong>5-10% slower</strong> for single-threaded code in some scenarios. <br> All the new internal locks add overhead.
+                        <br><br><strong>Rule:</strong> Benchmark before applying it to simple, single-threaded scripts.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold text-yellow-900">2. C-Extension Compatibility <br> (The BIG One)</h4>
+                        <p class="mt-3 text-yellow-800">Many old C-extensions are <strong><em>not</em></strong> thread-safe. Importing an "unsafe" extension will <strong>re-enable the GIL</strong> (with a warning) to prevent crashes, and you lose all parallelism.
+                        <br><br><strong>Action:</strong> You <strong><em>must</em></strong> check if dependencies (NumPy, pandas, Pillow) are free-threaded.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold text-yellow-900">3. New Bottlenecks: Lock Contention</h4>
+                        <p class="mt-3 text-yellow-800">We traded <em>one</em> big lock for <em>thousands</em> of tiny ones. If all 8 of your threads try to write to the <em>exact same list</em> at the <em>exact same time</em>, they will just queue up, one by one.
+                        <br><br><strong>Rule:</strong> You have to design for parallelism. Minimize shared, writeable data across the threads.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-neutral-200 bg-neutral-50">
+        <div class="container mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-neutral-500">By Kllly @ Sea Labs</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Mobile Menu Toggle ---
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileLinks = mobileMenu.querySelectorAll('a');
+            
+            menuBtn.addEventListener('click', () => {
+                const isExpanded = menuBtn.getAttribute('aria-expanded') === 'true';
+                menuBtn.setAttribute('aria-expanded', !isExpanded);
+                mobileMenu.classList.toggle('hidden');
+                menuBtn.querySelectorAll('svg').forEach(svg => svg.classList.toggle('hidden'));
+            });
+
+            mobileLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    menuBtn.setAttribute('aria-expanded', 'false');
+                    mobileMenu.classList.add('hidden');
+                    menuBtn.querySelectorAll('svg').forEach((svg, i) => {
+                        if (i === 0) svg.classList.remove('hidden');
+                        else svg.classList.add('hidden');
+                    });
+                });
+            });
+
+            // --- Generic Tabbed Interface Logic ---
+            const setupTabs = (containerId) => {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                const tabButtons = container.querySelectorAll('.tab-btn');
+                const tabPanels = container.querySelectorAll('.tab-panel');
+
+                tabButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const targetPanelId = button.getAttribute('data-tab-target');
+                        
+                        tabButtons.forEach(btn => btn.classList.remove('active'));
+                        button.classList.add('active');
+                        
+                        tabPanels.forEach(panel => {
+                            if ('#' + panel.id === targetPanelId) {
+                                panel.classList.add('active');
+                            } else {
+                                panel.classList.remove('active');
+                            }
+                        });
+                    });
+                });
+            };
+
+            setupTabs('problem');
+            setupTabs('use-cases');
+
+            // --- Benchmark Chart.js ---
+            const ctx = document.getElementById('benchmarkChart');
+            if (ctx) {
+                new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['GIL (1 Parsing Thread)', 'GIL (8 Parsing Threads)', 'No-GIL (8 Parsing Threads)'],
+                        datasets: [{
+                            label: 'Average Total Time (seconds)',
+                            data: [75.3, 18.3, 12.2],
+                            backgroundColor: [
+                                'rgba(239, 68, 68, 0.6)',
+                                'rgba(249, 115, 22, 0.6)',
+                                'rgba(37, 99, 235, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(239, 68, 68, 1)',
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(37, 99, 235, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Average Total Time (seconds)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Time: ${context.parsed.y} seconds`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+

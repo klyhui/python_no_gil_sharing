@@ -1,0 +1,52 @@
+name: Deploy Website to GitHub Pages
+
+on:
+  # Runs on pushes to the main branch
+  push:
+    branches: [main]
+  
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Grant permissions for the GITHUB_TOKEN to write to the Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out your repository
+        uses: actions/checkout@v4
+      
+      - name: Set up GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Create website artifact
+        # This step builds the "_site" folder that GitHub Pages wants.
+        # It copies your files into it.
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          cp scraper.py _site/scraper.py
+      
+      - name: Upload artifact
+        # Uploads the _site folder as a deployable artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site' # The folder to upload
+
+  deploy:
+    # This job runs only after the 'build' job succeeds
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Gets the URL
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        # This action automatically retrieves the artifact from the 'build' job
