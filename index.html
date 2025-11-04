@@ -28,6 +28,13 @@
             height: 300px;
             max-height: 400px;
         }
+        .author-tag {
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            background: linear-gradient(90deg, #2563eb, #4f46e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         @media (min-width: 768px) {
             .chart-container {
                 height: 350px;
@@ -95,7 +102,9 @@
                 <span class="block xl:inline">Python's New Era:</span>
                 <span class="block text-blue-600 xl:inline">Free-Threading in 3.14</span>
             </h1>
+            <p class="mt-4 text-lg text-neutral-600">By <span class="author-tag">Zhou Jiahui</span> @ Sea Labs</p>
             <p class="mt-6 max-w-md mx-auto text-lg text-neutral-600 sm:text-xl md:mt-8 md:max-w-3xl">
+                
                 How the end of the Global Interpreter Lock (GIL) unlocks true parallelism <br> and what it means for our applications.
             </p>
         </div>
@@ -462,7 +471,7 @@ print("Done.")</code></pre>
 
     <footer class="border-t border-neutral-200 bg-neutral-50">
         <div class="container mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8 text-center">
-            <p class="text-neutral-500">By Kllly @ Sea Labs</p>
+            <p class="text-neutral-500">By Zhou Jiahui @ Sea Labs</p>
         </div>
     </footer>
 
